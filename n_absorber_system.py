@@ -3,23 +3,26 @@ import numpy as np
 import scipy.integrate
 import matplotlib.pyplot as plt
 
-def MLKF_ndof(m1, l1, k1, f1, n, m2_total, l2, k2_func):
+def MLKF_ndof(m1, l1, k1, f1, n, m_n, l_n, k_n):
     # n = number of absorbers
 
     # Create a n by n matrix
-    m_n = m2_total / n
     m_trace = [m_n for i in range(n+1)]
     m_trace[0] = m1
     M = np.diag(m_trace)
     
-    l_trace = [l2 for i in range(n+1)]
-    l_trace[0] = l1+l2*(n+2)
+    l_trace = [l_n for i in range(n+1)]
+    l_trace[0] = l1+l_n*(n+2)
     L = np.diag(l_trace)
-    L[:,0] -= l2
-    L[0,:] -= l2
+    L[:,0] -= l_n
+    L[0,:] -= l_n
+    # l_trace = np.append(0, l_n)
+    # L = np.diag(l_trace)
+    # L[:,0] -= l_trace
+    # L[0,:] -= l_trace
+    # L[0, 0] = l1 + np.sum(l_trace)
 
-    k_trace = np.array([k2_func(i) for i in range(n)])
-    k_trace = np.append(0, k_trace)
+    k_trace = np.append(0, k_n)
     K = np.diag(k_trace)
     K[:,0] -= k_trace
     K[0,:] -= k_trace
@@ -57,6 +60,7 @@ def time_response(t_list, M, L, K, F):
         method='Radau',
         t_eval=t_list
     )
+    
 
     return solution.y[0:len(mm), :].T
 
@@ -73,8 +77,8 @@ def plot(hz, sec, M, L, K, F):
     # Generate response data
 
     f_response = freq_response(hz * 2*np.pi, M, L, K, F)
-    f_amplitude = np.abs(f_response)
-    t_response = time_response(sec, M, L, K, F)
+    f_amplitude = np.abs(f_response)[:,:10]
+    t_response = time_response(sec, M, L, K, F)[:,:10]
 
     # Determine suitable legends
 
@@ -87,9 +91,9 @@ def plot(hz, sec, M, L, K, F):
         for i, m in enumerate(np.argmax(f_amplitude, axis=0))
     )
 
-    equilib = np.abs(freq_response([0], M, L, K, F))[0]         # Zero Hz
+    equilib = np.abs(freq_response([0], M, L, K, F))[0][:10]        # Zero Hz
     toobig = abs(100 * (t_response - equilib) / equilib) >= 2
-    lastbig = last_nonzero(toobig, axis=0, invalid_val=len(sec)-1)
+    lastbig = last_nonzero(toobig, axis=1, invalid_val=len(sec)-1)
 
     t_legends = (
         'm{} settled to 2% beyond {:.4g} sec'.format(
@@ -117,14 +121,20 @@ def plot(hz, sec, M, L, K, F):
     plt.show()
 
 if __name__ == "__main__":
-    m1, l1, k1, f1 = 1, 1, 1, 1
-    n = 3
-    m2_total = 0.15
-    l2 = 0.1
-    def k2_func(i):
-        return 2*i + 1
+    m1, l1, k1, f1 = 3.94, 1.98, 2095, 1
+    w1 = np.sqrt(k1/m1)
+    n = 100
+    m_n = 5 / n
+    w_n = np.linspace(w1*np.sqrt(0.85), w1*np.sqrt(1), num=n)
+    # 80
+    zeta_total = 0.8/2/w1/0.15
+    k_n = w_n**2*m_n
+    l_n = 150/n
+    # l_n = 2*zeta_total/n*w_n*m_n
+    # l_n = 2*zeta_total*np.sqrt(k_n*m_n)
 
-    M, L, K, F = MLKF_ndof(m1, l1, k1, f1, n, m2_total, l2, k2_func)
+
+    M, L, K, F = MLKF_ndof(m1, l1, k1, f1, n, m_n, l_n, k_n)
 
     hz = np.linspace(0, 5, 10001)
     sec = np.linspace(0, 30, 10001)

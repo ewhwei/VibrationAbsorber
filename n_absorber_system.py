@@ -4,30 +4,46 @@ import scipy.integrate
 import matplotlib.pyplot as plt
 
 def MLKF_ndof(m1, l1, k1, f1, n, m_n, l_n, k_n):
-    # n = number of absorbers
+    """
+    Generates (n+1) by (n+1) mass, stiffness, and damping matrices
 
-    # Create a n by n matrix
+    :param m1: effective mass of the building
+    :param l1: effective damping rate of the building
+    :param k1: effective stiffness of the building
+    :param f1: force applied to the building
+    :param n: number of absorbers
+    :param m_n: mass of each absorber
+    :param l_n: damping rate of each absorber (or list of damping rates for all absorbers)
+    :param k_n: list of stiffnesses for all absorbers
+    """
+
+    # Generate trace of matrix and convert into diagonal matrix
     m_trace = [m_n for i in range(n+1)]
     m_trace[0] = m1
     M = np.diag(m_trace)
     
+    # Generate diagonal matrix, subtract off trace from the first column and row
     l_trace = [l_n for i in range(n+1)]
     l_trace[0] = l1+l_n*(n+2)
     L = np.diag(l_trace)
     L[:,0] -= l_n
     L[0,:] -= l_n
+
+    # If list of damping rates was provided
     # l_trace = np.append(0, l_n)
     # L = np.diag(l_trace)
     # L[:,0] -= l_trace
     # L[0,:] -= l_trace
     # L[0, 0] = l1 + np.sum(l_trace)
 
+    # Generate diagonal matrix, subtract off trace from the first column and row
     k_trace = np.append(0, k_n)
     K = np.diag(k_trace)
     K[:,0] -= k_trace
     K[0,:] -= k_trace
     K[0, 0] = k1 + np.sum(k_trace)
     
+    # Generate array of force applied
     F = np.zeros(n+1)
     F[0] = f1
 
@@ -121,21 +137,23 @@ def plot(hz, sec, M, L, K, F):
     plt.show()
 
 if __name__ == "__main__":
+    # Initialise parameters
     m1, l1, k1, f1 = 3.94, 1.98, 2095, 1
     w1 = np.sqrt(k1/m1)
     n = 100
-    m_n = 5 / n
+    # Determine mass of each absorber
+    m_n = 0.15 / n
+    # Generate range of resonant frequencies and the corresponding stiffnesses required
     w_n = np.linspace(w1*np.sqrt(0.85), w1*np.sqrt(1), num=n)
-    # 80
-    zeta_total = 0.8/2/w1/0.15
     k_n = w_n**2*m_n
-    l_n = 150/n
-    # l_n = 2*zeta_total/n*w_n*m_n
+    # Scale damping rate, or generate list of damping rates such that zeta is kept constant
+    l_n = 1/n
+    # zeta_total = 0.95/2/w1/0.15
     # l_n = 2*zeta_total*np.sqrt(k_n*m_n)
 
-
+    # Generate matrices
     M, L, K, F = MLKF_ndof(m1, l1, k1, f1, n, m_n, l_n, k_n)
-
+    # Plot frequency and harmonic response
     hz = np.linspace(0, 5, 10001)
     sec = np.linspace(0, 30, 10001)
     plot(hz, sec, M, L, K, F)
